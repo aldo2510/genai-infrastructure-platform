@@ -84,15 +84,15 @@ def main():
         return
 
     # Resume an existing remote branch left by a previous failed run, if present.
-    subprocess.check_call(["git", "fetch", "origin", branch], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) if subprocess.run(
-        ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    ).returncode == 0 else None
     remote_branch_exists = subprocess.run(
         ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     ).returncode == 0
     if remote_branch_exists:
+        subprocess.check_call([
+            "git", "fetch", "origin",
+            "+refs/heads/" + branch + ":refs/remotes/origin/" + branch
+        ])
         subprocess.check_call(["git", "checkout", "-B", branch, "origin/" + branch])
     else:
         subprocess.check_call(["git", "checkout", "-b", branch])
