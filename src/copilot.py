@@ -222,14 +222,14 @@ def main():
             ]
             for key, value in params.items():
                 tf_lines.append('  ' + key + ' = ' + hcl_value(value))
-            tf_lines.extend([
-                '  tags = {',
-                '    Environment = ' + json.dumps(data["environment"]),
-                '    ManagedBy = "genai-infrastructure-platform"',
-                '  }',
-                '}',
-                ''
-            ])
+            if "tags" not in params:
+                tf_lines.extend([
+                    '  tags = {',
+                    '    Environment = ' + json.dumps(data["environment"]),
+                    '    ManagedBy = "genai-infrastructure-platform"',
+                    '  }',
+                ])
+            tf_lines.extend(['}', ''])
             with open(os.path.join(checkout, "main.tf"), "w", encoding="utf-8") as tf:
                 tf.write("\\n".join(tf_lines))
             with open(os.path.join(checkout, "REQUEST.md"), "w", encoding="utf-8") as doc:
