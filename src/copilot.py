@@ -341,11 +341,39 @@ def main():
                 "- [ ] Review a Terraform plan in an authorized environment\n\n"
                 "No AWS resources were created. This PR does not run terraform apply."
             )
-            pr_url = gh(
-                "pr", "create", "--repo", target_repo, "--base", default_branch, "--head", branch,
-                "--title", "Proposal: infrastructure for issue #" + number, "--body", pr_body,
-                env=cli_env
+            # Create the PR through the GitHub REST API so API errors are surfaced clearly.
+            # This avoids gh CLI's CalledProcessError hiding the actual GitHub response.
+            pr_payload = {
+                "title": "Proposal: infrastructure for issue #" + number,
+                "head": branch,
+                "base": default_branch,
+                "body": pr_body
+            }
+            pr_req = urllib.request.Request(
+                "https://api.github.com/repos/" + target_repo + "/pulls",
+                data=json.dumps(pr_payload).encode(),
+                headers={
+                    "Authorization": "Bearer " + GH_PLATFORM_TOKEN,
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                    "Content-Type": "application/json"
+                },
+                method="POST"
             )
+            try:
+                with urllib.request.urlopen(pr_req, timeout=30) as pr_response:
+                    pr_result = json.loads(pr_response.read().decode())
+                pr_url = pr_result["html_url"]
+            except urllib.error.HTTPError as pr_exc:
+                detail = pr_exc.read().decode(errors="replace")[:1200]
+                if pr_exc.code == 422 and "pull request already exists" in detail.lower():
+                    pr_url = "https://github.com/" + target_repo + "/pulls"
+                else:
+                    raise RuntimeError(
+                        "GitHub could not create the Pull Request (HTTP " + str(pr_exc.code) +
+                        "): " + detail +
+                        ". Verify that GH_PLATFORM_TOKEN has pull requests write access to " + target_repo + "."
+                    ) from pr_exc
         issue_comment(
             source_repo, number,
             "Created repository " + target_repo + " from the public template and opened a Pull Request: " + pr_url +
