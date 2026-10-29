@@ -122,14 +122,24 @@ def main():
     if comment.get("user", {}).get("type") == "Bot":
         return
     command = comment.get("body", "").strip()
-    # Explicit opt-in avoids LLM calls on every ordinary conversation comment.
-    if not command.lower().startswith("/provision"):
-        return
-
     source_repo = os.environ["GITHUB_REPOSITORY"]
     number = str(issue["number"])
-    issue_text = (issue.get("title", "") + "\n" + issue.get("body", "") +
-                  "\nLatest command/comment:\n" + command)[:16000]
+    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+    if event_name == "issue_comment" and issue.get("pull_request"):
+        return
+
+    # Combine the original request with all user replies, allowing conversational follow-up.
+    conversation = ""
+    if event_name == "issue_comment":
+        try:
+            conversation = gh("api", "repos/" + source_repo + "/issues/" + number + "/comments", "--paginate", "--jq", ".[].body")
+        except Exception:
+            conversation = command
+    issue_text = (
+        "Issue title:\\n" + issue.get("title", "") +
+        "\\nIssue description:\\n" + issue.get("body", "") +
+        "\\nConversation comments:\\n" + conversation
+    )[:16000]
     try:
         data = llm_extract(issue_text)
         errors = validate(data)
