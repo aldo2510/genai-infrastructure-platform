@@ -181,7 +181,7 @@ def main():
             checkout = os.path.join(temp_dir, repo_name)
             gh("repo", "clone", target_repo, checkout, env=cli_env)
             default_branch = gh("repo", "view", target_repo, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name", env=cli_env)
-            branch = "copilot/issue-" + number + "-s3"
+            branch = "copilot/issue-" + number + "-infra"
             existing_pr = gh(
                 "pr", "list", "--repo", target_repo, "--head", branch,
                 "--state", "all", "--json", "url", "--jq", ".[0].url // empty",
@@ -234,22 +234,21 @@ def main():
                 tf.write("\\n".join(tf_lines))
             with open(os.path.join(checkout, "REQUEST.md"), "w", encoding="utf-8") as doc:
                 doc.write(
-                    "# Generated infrastructure request\n\n"
-                    "- Source issue: https://github.com/" + source_repo + "/issues/" + number + "\n"
-                    "- Service: S3\n"
-                    "- Application repository: " + target_repo + "\n"
-                    "- Bucket: " + data["bucket_name"] + "\n"
-                    "- Environment: " + data["environment"] + "\n"
-                    "- Region: " + data["region"] + "\n"
-                    "- Versioning: " + str(data["versioning_enabled"]) + "\n\n"
+                    "# Generated infrastructure request\\n\\n"
+                    "- Source issue: https://github.com/" + source_repo + "/issues/" + number + "\\n"
+                    "- Module: " + module["path"] + "\\n"
+                    "- Application repository: " + target_repo + "\\n"
+                    "- Environment: " + data["environment"] + "\\n"
+                    "- Region: " + data["region"] + "\\n"
+                    "- Parameters: " + json.dumps(params, ensure_ascii=False) + "\\n\\n"
                     "Generated proposal only. Terraform downloads the shared module during terraform init. "
-                    "Review the code and checks before merge. No terraform apply is run by this workflow.\n"
+                    "Review code and checks before merge. No terraform apply is run by this workflow.\\n"
                 )
 
             subprocess.run(["git", "add", "main.tf", "REQUEST.md"], check=True, cwd=checkout)
             staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=checkout).returncode != 0
             if staged:
-                subprocess.run(["git", "commit", "-m", "feat: propose S3 infrastructure from issue #" + number], check=True, cwd=checkout)
+                subprocess.run(["git", "commit", "-m", "feat: propose infrastructure from issue #" + number], check=True, cwd=checkout)
             # Configure authenticated HTTPS for this subprocess only; never write the PAT into .git/config or logs.
             import base64
             auth_value = base64.b64encode(("x-access-token:" + GH_PLATFORM_TOKEN).encode()).decode()
@@ -265,13 +264,13 @@ def main():
             )
             pr_url = gh(
                 "pr", "create", "--repo", target_repo, "--base", default_branch, "--head", branch,
-                "--title", "Proposal: S3 infrastructure for issue #" + number, "--body", pr_body,
+                "--title", "Proposal: infrastructure for issue #" + number, "--body", pr_body,
                 env=cli_env
             )
         issue_comment(
             source_repo, number,
             "Created repository " + target_repo + " from the public template and opened a Pull Request: " + pr_url +
-            "\n\nThe shared S3 module remains in aldo2510/terraform-aws-modules and is downloaded by Terraform during validation. No AWS resources were created."
+            "\n\nThe selected shared Terraform module is referenced remotely and downloaded during terraform init. No AWS resources were created."
         )
     except Exception as exc:
         issue_comment(source_repo, number, "I couldn't complete the request: " + str(exc)[:1500] + "\nNo AWS resources were deployed.")
