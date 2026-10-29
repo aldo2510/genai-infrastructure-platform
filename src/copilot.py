@@ -179,9 +179,9 @@ def main():
         except Exception:
             conversation = command
     issue_text = (
-        "Issue title:\\n" + issue.get("title", "") +
-        "\\nIssue description:\\n" + issue.get("body", "") +
-        "\\nConversation comments:\\n" + conversation
+        "Issue title:\n" + issue.get("title", "") +
+        "\nIssue description:\n" + issue.get("body", "") +
+        "\nConversation comments:\n" + conversation
     )[:16000]
     try:
         data = llm_extract(issue_text)
@@ -274,18 +274,18 @@ def main():
                 ])
             tf_lines.extend(['}', ''])
             with open(os.path.join(checkout, "main.tf"), "w", encoding="utf-8") as tf:
-                tf.write("\\n".join(tf_lines))
+                tf.write("\n".join(tf_lines))
             with open(os.path.join(checkout, "REQUEST.md"), "w", encoding="utf-8") as doc:
                 doc.write(
-                    "# Generated infrastructure request\\n\\n"
-                    "- Source issue: https://github.com/" + source_repo + "/issues/" + number + "\\n"
-                    "- Module: " + module["path"] + "\\n"
-                    "- Application repository: " + target_repo + "\\n"
-                    "- Environment: " + data["environment"] + "\\n"
-                    "- Region: " + data["region"] + "\\n"
-                    "- Parameters: " + json.dumps(params, ensure_ascii=False) + "\\n\\n"
+                    "# Generated infrastructure request\n\n"
+                    "- Source issue: https://github.com/" + source_repo + "/issues/" + number + "\n"
+                    "- Module: " + module["path"] + "\n"
+                    "- Application repository: " + target_repo + "\n"
+                    "- Environment: " + data["environment"] + "\n"
+                    "- Region: " + data["region"] + "\n"
+                    "- Parameters: " + json.dumps(params, ensure_ascii=False) + "\n\n"
                     "Generated proposal only. Terraform downloads the shared module during terraform init. "
-                    "Review code and checks before merge. No terraform apply is run by this workflow.\\n"
+                    "Review code and checks before merge. No terraform apply is run by this workflow.\n"
                 )
 
             subprocess.run(["git", "add", "main.tf", "REQUEST.md"], check=True, cwd=checkout)
