@@ -146,9 +146,11 @@ def main():
         if errors:
             issue_comment(
                 source_repo, number,
-                "## Infrastructure Copilot — missing or invalid values\n\n" +
+                "## Infrastructure Copilot — faltan datos obligatorios\n\n" +
+                "Entendí tu solicitud, pero necesito completar o corregir estos datos antes de generar Terraform:\n\n" +
                 "\n".join("- " + error for error in errors) +
-                "\n\nReply with /provision repo=infra-nombre-app and include the missing bucket, environment, and region values in the Issue. No AWS resources are deployed."
+                "\n\n**Responde en español o con formato campo: valor.** No necesitas crear otra Issue ni repetir toda la solicitud. " +
+                "Cuando los datos estén completos, el agente continuará con el repositorio y el Pull Request. No se despliegan recursos en AWS."
             )
             return
 
