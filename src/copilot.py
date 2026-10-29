@@ -168,8 +168,7 @@ def main():
                 "Entendí tu solicitud. Antes de generar Terraform y crear el repositorio, necesito estos datos obligatorios:\n\n" +
                 "\n".join("- " + error for error in errors) +
                 "\n\n**Puedes responder normalmente en español**; no necesitas usar comandos ni repetir los datos que ya proporcionaste. " +
-                "Cuando estén completos el nombre de la aplicación, el nombre del bucket, el entorno y la región, continuaré con el repositorio y el Pull Request. " +
-                "El versionado se habilita por defecto si no indicas lo contrario. No se despliegan recursos en AWS."
+                "Cuando estén completos los datos requeridos por el módulo seleccionado, continuaré con el repositorio y el Pull Request. No se despliegan recursos en AWS."
             )
             return
 
