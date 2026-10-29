@@ -1,0 +1,33 @@
+name: Infrastructure request
+description: Request infrastructure through the GenAI platform
+title: "[infra] "
+labels: ["infrastructure-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe what you need in plain language. The assistant will ask for missing required values.
+        Do not include credentials, secrets, customer data, or other sensitive information.
+  - type: textarea
+    id: request
+    attributes:
+      label: Infrastructure request
+      description: Example: Create a private S3 bucket for application documents.
+      placeholder: I need an S3 bucket for ...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment (optional)
+      placeholder: dev
+  - type: input
+    id: region
+    attributes:
+      label: AWS region (optional)
+      placeholder: us-east-1
+  - type: input
+    id: bucket_name
+    attributes:
+      label: Bucket name (optional)
+      placeholder: my-app-documents-dev
