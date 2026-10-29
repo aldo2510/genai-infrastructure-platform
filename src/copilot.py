@@ -160,20 +160,19 @@ def main():
                 issue_comment(source_repo, number, "A Pull Request for this request already exists in " + target_repo + ": " + existing_pr)
                 return
 
-            os.chdir(checkout)
-            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
-            subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True, cwd=checkout)
+            subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True, cwd=checkout)
             remote_exists = subprocess.run(
                 ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, **cli_env}
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, **cli_env}, cwd=checkout
             ).returncode == 0
             if remote_exists:
-                subprocess.run(["git", "fetch", "origin", branch], check=True, env={**os.environ, **cli_env})
-                subprocess.run(["git", "checkout", "-B", branch, "FETCH_HEAD"], check=True)
+                subprocess.run(["git", "fetch", "origin", branch], check=True, env={**os.environ, **cli_env}, cwd=checkout)
+                subprocess.run(["git", "checkout", "-B", branch, "FETCH_HEAD"], check=True, cwd=checkout)
             else:
-                subprocess.run(["git", "checkout", "-b", branch], check=True)
+                subprocess.run(["git", "checkout", "-b", branch], check=True, cwd=checkout)
 
-            with open("main.tf", "w", encoding="utf-8") as tf:
+            with open(os.path.join(checkout, "main.tf"), "w", encoding="utf-8") as tf:
                 tf.write(
                     'terraform {\n  required_version = ">= 1.5.0"\n'
                     '  required_providers {\n    aws = { source = "hashicorp/aws", version = ">= 5.0, < 7.0" }\n  }\n}\n\n'
@@ -185,7 +184,7 @@ def main():
                     '  tags = {\n    Environment = "' + data["environment"] + '"\n'
                     '    ManagedBy = "genai-infrastructure-platform"\n  }\n}\n'
                 )
-            with open("REQUEST.md", "w", encoding="utf-8") as doc:
+            with open(os.path.join(checkout, "REQUEST.md"), "w", encoding="utf-8") as doc:
                 doc.write(
                     "# Generated infrastructure request\n\n"
                     "- Source issue: https://github.com/" + source_repo + "/issues/" + number + "\n"
@@ -199,11 +198,11 @@ def main():
                     "Review the code and checks before merge. No terraform apply is run by this workflow.\n"
                 )
 
-            subprocess.run(["git", "add", "main.tf", "REQUEST.md"], check=True)
-            staged = subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode != 0
+            subprocess.run(["git", "add", "main.tf", "REQUEST.md"], check=True, cwd=checkout)
+            staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=checkout).returncode != 0
             if staged:
-                subprocess.run(["git", "commit", "-m", "feat: propose S3 infrastructure from issue #" + number], check=True)
-            subprocess.run(["git", "push", "--set-upstream", "origin", branch], check=True, env={**os.environ, **cli_env})
+                subprocess.run(["git", "commit", "-m", "feat: propose S3 infrastructure from issue #" + number], check=True, cwd=checkout)
+            subprocess.run(["git", "push", "--set-upstream", "origin", branch], check=True, env={**os.environ, **cli_env}, cwd=checkout)
             pr_body = (
                 "## GenAI Infrastructure proposal\n\nGenerated from https://github.com/" + source_repo + "/issues/" + number + ".\n\n"
                 "- [ ] Review the remote module source and inputs\n"
