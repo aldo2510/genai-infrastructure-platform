@@ -214,7 +214,11 @@ def main():
             staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=checkout).returncode != 0
             if staged:
                 subprocess.run(["git", "commit", "-m", "feat: propose S3 infrastructure from issue #" + number], check=True, cwd=checkout)
-            subprocess.run(["git", "push", "--set-upstream", "origin", branch], check=True, env={**os.environ, **cli_env}, cwd=checkout)
+            # Configure authenticated HTTPS for this subprocess only; never write the PAT into .git/config or logs.
+            import base64
+            auth_value = base64.b64encode(("x-access-token:" + GH_PLATFORM_TOKEN).encode()).decode()
+            push_env = {**os.environ, **cli_env, "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader", "GIT_CONFIG_VALUE_0": "AUTHORIZATION: basic " + auth_value}
+            subprocess.run(["git", "push", "--set-upstream", "origin", branch], check=True, env=push_env, cwd=checkout)
             pr_body = (
                 "## GenAI Infrastructure proposal\n\nGenerated from https://github.com/" + source_repo + "/issues/" + number + ".\n\n"
                 "- [ ] Review the remote module source and inputs\n"
