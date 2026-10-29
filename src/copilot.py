@@ -73,7 +73,7 @@ def main():
         return
 
     branch = "copilot/issue-" + number + "-s3"
-    gh("checkout", "-b", branch)
+    subprocess.check_call(["git", "checkout", "-b", branch])
     os.makedirs("requests/issue-" + number, exist_ok=True)
     request_dir = "requests/issue-" + number
     with open(request_dir + "/main.tf", "w", encoding="utf-8") as f:
@@ -89,7 +89,7 @@ def main():
         f.write("Generated proposal only. Review the Terraform and policy results. This workflow does not run terraform apply.\n")
     gh("add", request_dir)
     gh("commit", "-m", "feat: propose S3 infrastructure from issue #" + number)
-    gh("push", "--set-upstream", "origin", branch)
+    subprocess.check_call(["git", "push", "--set-upstream", "origin", branch])
     pr_body = "## GenAI Infrastructure proposal\n\nGenerated from issue #" + number + ".\n\n- [ ] Review module source and inputs\n- [ ] Confirm environment and region\n- [ ] Run/inspect Terraform plan in an authorized environment\n- [ ] Verify governance checks\n\n**No AWS resources were created. This PR does not run terraform apply.**"
     gh("pr", "create", "--repo", repo, "--base", os.environ.get("GITHUB_BASE_REF", "main"), "--head", branch, "--title", "Proposal: S3 infrastructure for issue #" + number, "--body", pr_body)
     gh("issue", "comment", number, "--repo", repo, "--body", "I opened a Pull Request with the proposed Terraform configuration. Review the PR before any deployment; no AWS resources were created.")
