@@ -198,7 +198,7 @@ def main():
                 slug = re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]", "-", app_match.group(1).lower())).strip("-")
                 if slug:
                     data["repository_name"] = "infra-" + slug
-        explicit_region = re.findall(r"(?i)\bregion\s*:\s*([a-z0-9-]+)", issue_text)
+        explicit_region = re.findall(r"(?i)\bregi[oó]n\s*:\s*([a-z0-9-]+)", issue_text)
         if explicit_region:
             data["region"] = explicit_region[-1].strip()
         explicit_environment = re.findall(r"(?i)\bentorno\s*:\s*(dev|test|staging|prod)\b", issue_text)
