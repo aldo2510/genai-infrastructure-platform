@@ -223,14 +223,17 @@ def main():
         with tempfile.TemporaryDirectory(prefix="infra-copilot-") as temp_dir:
             checkout = os.path.join(temp_dir, repo_name)
             gh("repo", "clone", target_repo, checkout, env=cli_env)
-            default_branch = gh("repo", "view", target_repo, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name // empty", env=cli_env).strip()
-            if not default_branch:
-                # GitHub can briefly return a null defaultBranchRef immediately after template generation.
-                # Derive the base from the cloned repository rather than passing --base an empty string.
-                default_branch = subprocess.run(
-                    ["git", "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
-                    check=False, capture_output=True, text=True, cwd=checkout
-                ).stdout.strip().removeprefix("origin/")
+            # Resolve the base branch through GitHub's repository API. Newly generated
+            # repositories can briefly have no defaultBranchRef, so fall back to the
+            # actual remote branches and finally to the template's known default.
+            default_branch = ""
+            try:
+                default_branch = gh(
+                    "api", "repos/" + target_repo, "--jq", ".default_branch // empty",
+                    env=cli_env
+                ).strip()
+            except Exception:
+                pass
             if not default_branch:
                 for candidate in ("main", "master"):
                     exists = subprocess.run(
@@ -242,7 +245,21 @@ def main():
                         default_branch = candidate
                         break
             if not default_branch:
-                raise RuntimeError("Could not determine the target repository base branch (main/master). No Pull Request was created.")
+                # Template repository's default branch is known to be main; verify it
+                # exists remotely before using it as the PR base.
+                exists = subprocess.run(
+                    ["git", "ls-remote", "--exit-code", "--heads", "origin", "main"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    env={**os.environ, **cli_env}, cwd=checkout
+                ).returncode == 0
+                if exists:
+                    default_branch = "main"
+            if not default_branch:
+                raise RuntimeError(
+                    "Repository " + target_repo + " has no discoverable main/master branch. "
+                    "Check the template repository's default branch and repository initialization. "
+                    "No Pull Request was created."
+                )
             branch = "copilot/issue-" + number + "-infra"
             existing_pr = gh(
                 "pr", "list", "--repo", target_repo, "--head", branch,
