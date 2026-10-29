@@ -260,7 +260,7 @@ def main():
                 '  region = ' + json.dumps(data["region"]),
                 '}',
                 '',
-                'module "requested_infrastructure" {',
+                'module "' + re.sub(r'[^a-zA-Z0-9_]', '_', module["path"].rstrip("/").split("/")[-1]) + '" {',
                 '  source = ' + json.dumps(module["source"]),
             ]
             for key, value in params.items():
