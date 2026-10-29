@@ -187,9 +187,23 @@ def main():
         data = llm_extract(issue_text)
         # Honor explicit key:value replies deterministically; do not rely on the LLM to
         # re-extract a simple clarification such as "region: us-east-1".
-        explicit_region = re.findall(r"(?im)^\s*region\s*:\s*([a-z0-9-]+)\s*$", issue_text)
+        # Deterministic recovery of values explicitly present in the issue.
+        # The model must not discard the application/repository name supplied by the user.
+        explicit_repo = re.findall(r"(?i)\binfra-[a-z0-9]+(?:-[a-z0-9]+)*\b", issue_text)
+        if explicit_repo:
+            data["repository_name"] = explicit_repo[-1].lower()
+        else:
+            app_match = re.search(r"(?im)^\s*(?:aplicaci[oó]n|equipo)\s*:\s*([a-z0-9][a-z0-9-]*)\s*$", issue_text)
+            if app_match:
+                slug = re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]", "-", app_match.group(1).lower())).strip("-")
+                if slug:
+                    data["repository_name"] = "infra-" + slug
+        explicit_region = re.findall(r"(?i)\bregion\s*:\s*([a-z0-9-]+)", issue_text)
         if explicit_region:
             data["region"] = explicit_region[-1].strip()
+        explicit_environment = re.findall(r"(?i)\bentorno\s*:\s*(dev|test|staging|prod)\b", issue_text)
+        if explicit_environment:
+            data["environment"] = explicit_environment[-1].lower()
         errors = validate(data)
         if errors:
             issue_comment(
