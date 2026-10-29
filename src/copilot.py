@@ -78,7 +78,7 @@ def validate(data, catalog=None):
             errors.append("Para el módulo " + module["name"] + ", ¿qué valor debe tener " + name + "? " + variable["description"])
     if data.get("environment") not in {"dev", "test", "staging", "prod"}:
         errors.append("¿En qué entorno se utilizará? Responde dev, test, staging o prod.")
-    if not isinstance(data.get("region"), str) or not re.fullmatch(r"[a-z]{2}(-gov)?-[a-z]+-\\d", data["region"]):
+    if not isinstance(data.get("region"), str) or not re.fullmatch(r"[a-z]{2}(-gov)?-[a-z]+-\d", data["region"]):
         errors.append("¿En qué región de AWS se utilizará? Por ejemplo, us-east-1.")
     data["module"] = module
     return errors
@@ -160,6 +160,11 @@ def main():
     )[:16000]
     try:
         data = llm_extract(issue_text)
+        # Honor explicit key:value replies deterministically; do not rely on the LLM to
+        # re-extract a simple clarification such as "region: us-east-1".
+        explicit_region = re.findall(r"(?im)^\s*region\s*:\s*([a-z0-9-]+)\s*$", issue_text)
+        if explicit_region:
+            data["region"] = explicit_region[-1].strip()
         errors = validate(data)
         if errors:
             issue_comment(
