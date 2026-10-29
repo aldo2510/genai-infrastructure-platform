@@ -29,10 +29,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gh
-      - name: Process request and propose Terraform
+      - name: Process explicit provisioning command
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PLATFORM_TOKEN: ${{ secrets.GH_PLATFORM_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
           GITHUB_BASE_REF: ${{ github.event.repository.default_branch }}
