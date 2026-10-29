@@ -87,8 +87,8 @@ def main():
         f.write("# Generated infrastructure request\n\n")
         f.write("- Issue: #" + number + "\n- Service: S3\n- Bucket: " + data["bucket_name"] + "\n- Environment: " + data["environment"] + "\n- Region: " + data["region"] + "\n- Versioning: " + str(data["versioning_enabled"]) + "\n\n")
         f.write("Generated proposal only. Review the Terraform and policy results. This workflow does not run terraform apply.\n")
-    gh("add", request_dir)
-    gh("commit", "-m", "feat: propose S3 infrastructure from issue #" + number)
+    subprocess.check_call(["git", "add", request_dir])
+    subprocess.check_call(["git", "commit", "-m", "feat: propose S3 infrastructure from issue #" + number])
     subprocess.check_call(["git", "push", "--set-upstream", "origin", branch])
     pr_body = "## GenAI Infrastructure proposal\n\nGenerated from issue #" + number + ".\n\n- [ ] Review module source and inputs\n- [ ] Confirm environment and region\n- [ ] Run/inspect Terraform plan in an authorized environment\n- [ ] Verify governance checks\n\n**No AWS resources were created. This PR does not run terraform apply.**"
     gh("pr", "create", "--repo", repo, "--base", os.environ.get("GITHUB_BASE_REF", "main"), "--head", branch, "--title", "Proposal: S3 infrastructure for issue #" + number, "--body", pr_body)
