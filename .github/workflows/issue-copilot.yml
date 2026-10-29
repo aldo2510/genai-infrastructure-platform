@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   copilot:
-    if: github.event.issue.pull_request == null && github.event.comment.user.type != 'Bot' && contains(github.event.issue.labels.*.name, 'infrastructure-request')
+    if: github.event.issue.pull_request == null && github.event.comment.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
