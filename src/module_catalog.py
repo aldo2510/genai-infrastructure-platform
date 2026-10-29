@@ -1,6 +1,7 @@
 """Dynamic discovery of Terraform modules in the shared public module repository."""
 import base64
 import json
+import os
 import re
 import urllib.request
 
@@ -8,9 +9,18 @@ MODULE_REPO = "aldo2510/terraform-aws-modules"
 
 
 def api(path):
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "genai-infrastructure-platform",
+    }
+    # Authenticated requests avoid the very low unauthenticated GitHub API rate limit.
+    token = os.environ.get("GH_PLATFORM_TOKEN") or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = "Bearer " + token
     request = urllib.request.Request(
         "https://api.github.com" + path,
-        headers={"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"},
+        headers=headers,
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         return json.loads(response.read().decode())
