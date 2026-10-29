@@ -1,42 +1,41 @@
 name: Infrastructure Copilot
 
 on:
+  issues:
+    types: [opened]
   issue_comment:
     types: [created]
 
 permissions:
-  contents: write
+  contents: read
   issues: write
   pull-requests: write
 
 jobs:
   copilot:
-    if: github.event.issue.pull_request == null && github.event.comment.user.type != 'Bot'
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'infrastructure-request')) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request == null && github.event.comment.user.type != 'Bot' && contains(github.event.issue.labels.*.name, 'infrastructure-request'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Install GitHub CLI and Python dependencies
+      - name: Install GitHub CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y gh
-      - name: Process explicit provisioning command
+      - name: Conversational infrastructure intake
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_PLATFORM_TOKEN: ${{ secrets.GH_PLATFORM_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
-          GITHUB_BASE_REF: ${{ github.event.repository.default_branch }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
