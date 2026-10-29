@@ -1,0 +1,38 @@
+name: Infrastructure Issue Intake
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  intake:
+    if: contains(github.event.issue.labels.*.name, 'infrastructure-request')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain next steps
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body "$(cat <<'EOF'
+          ## Infrastructure Copilot
+
+          I received your request. This lab's first iteration supports the **S3 module** and does not deploy AWS resources.
+
+          Please make sure the request includes:
+          - bucket_name: globally unique S3 bucket name (lowercase, 3-63 characters)
+          - environment: dev, test, staging, or prod
+          - region: AWS region, for example us-east-1
+          - versioning_enabled: true or false (defaults to true; governance may require it)
+
+          Reply in a comment with missing values using key: value lines. Do not post secrets or customer data.
+
+          **Current mode:** intake and clarification only. The next iteration will add LLM-based intent parsing, policy validation and PR generation. No Terraform apply is configured.
+          EOF
+          )"
