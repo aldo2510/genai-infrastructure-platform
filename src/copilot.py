@@ -53,26 +53,45 @@ def llm_extract(text, catalog):
         payload = json.loads(response.read().decode())
     return json.loads(payload["choices"][0]["message"]["content"])
 
-def validate(data):
+def validate(data, catalog):
     errors = []
     repo_name = data.get("repository_name")
     if not isinstance(repo_name, str) or not re.fullmatch(r"infra-[a-z0-9]+(?:-[a-z0-9]+)*", repo_name):
-        errors.append("¿Cómo se llama la aplicación o equipo? Indica un nombre sencillo, por ejemplo: pagos. El repositorio se nombrará infra-pagos.")
-    if data.get("service") != "s3":
-        errors.append("Por ahora solo puedo gestionar solicitudes de buckets S3. ¿Necesitas un bucket S3?")
-    name = data.get("bucket_name")
-    if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", name) or ".." in name:
-        errors.append("¿Qué nombre debe tener el bucket S3? Usa entre 3 y 63 caracteres: letras minúsculas, números, puntos o guiones; debe comenzar y terminar con letra o número.")
+        errors.append("¿Cómo se llama la aplicación o equipo? Por ejemplo, pagos (repositorio infra-pagos).")
+    module = next((m for m in catalog if m["path"] == data.get("module_path")), None)
+    if module is None:
+        errors.append("No encontré un módulo compatible en el catálogo actual. Precisa qué servicio o recurso necesitas.")
+        return errors
+    params = data.get("parameters")
+    if not isinstance(params, dict):
+        params = {}
+    declared = {v["name"]: v for v in module["variables"]}
+    data["parameters"] = {k: v for k, v in params.items() if k in declared}
+    for name, variable in declared.items():
+        if variable["required"] and name not in data["parameters"]:
+            errors.append("Para el módulo " + module["name"] + ", ¿qué valor debe tener " + name + "? " + variable["description"])
     if data.get("environment") not in {"dev", "test", "staging", "prod"}:
-        errors.append("¿En qué entorno se usará? Responde dev, test, staging o prod.")
-    if not isinstance(data.get("region"), str) or not re.fullmatch(r"[a-z]{2}(-gov)?-[a-z]+-\d", data["region"]):
-        errors.append("¿En qué región de AWS se creará? Por ejemplo, us-east-1.")
-    if data.get("versioning_enabled") is None:
-        data["versioning_enabled"] = True
-    if not isinstance(data["versioning_enabled"], bool):
-        errors.append("versioning_enabled must be true or false.")
+        errors.append("¿En qué entorno se utilizará? Responde dev, test, staging o prod.")
+    if not isinstance(data.get("region"), str) or not re.fullmatch(r"[a-z]{2}(-gov)?-[a-z]+-\\d", data["region"]):
+        errors.append("¿En qué región de AWS se utilizará? Por ejemplo, us-east-1.")
+    data["module"] = module
     return errors
 
+
+def hcl_value(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        return "[" + ", ".join(hcl_value(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(json.dumps(str(k)) + " = " + hcl_value(v) for k, v in value.items()) + " }"
+    raise ValueError("Tipo de parámetro Terraform no admitido.")
 
 def create_repo_from_template(repo_name):
     if not GH_PLATFORM_TOKEN:
