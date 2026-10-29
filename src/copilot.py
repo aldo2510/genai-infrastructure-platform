@@ -174,15 +174,27 @@ def main():
 
             with open(os.path.join(checkout, "main.tf"), "w", encoding="utf-8") as tf:
                 tf.write(
-                    'terraform {\n  required_version = ">= 1.5.0"\n'
-                    '  required_providers {\n    aws = { source = "hashicorp/aws", version = ">= 5.0, < 7.0" }\n  }\n}\n\n'
-                    'provider "aws" {\n  region = "' + data["region"] + '"\n}\n\n'
+                    'terraform {\n'
+                    '  required_version = ">= 1.5.0"\n'
+                    '  required_providers {\n'
+                    '    aws = {\n'
+                    '      source  = "hashicorp/aws"\n'
+                    '      version = ">= 5.0, < 7.0"\n'
+                    '    }\n'
+                    '  }\n'
+                    '}\n\n'
+                    'provider "aws" {\n'
+                    '  region = "' + data["region"] + '"\n'
+                    '}\n\n'
                     'module "requested_bucket" {\n'
-                    '  source = "git::https://github.com/' + MODULE_REPO + '.git//modules/s3?ref=main"\n'
-                    '  bucket_name = "' + data["bucket_name"] + '"\n'
+                    '  source             = "git::https://github.com/' + MODULE_REPO + '.git//modules/s3?ref=main"\n'
+                    '  bucket_name        = "' + data["bucket_name"] + '"\n'
                     '  versioning_enabled = ' + str(data["versioning_enabled"]).lower() + '\n'
-                    '  tags = {\n    Environment = "' + data["environment"] + '"\n'
-                    '    ManagedBy = "genai-infrastructure-platform"\n  }\n}\n'
+                    '  tags = {\n'
+                    '    Environment = "' + data["environment"] + '"\n'
+                    '    ManagedBy   = "genai-infrastructure-platform"\n'
+                    '  }\n'
+                    '}\n'
                 )
             with open(os.path.join(checkout, "REQUEST.md"), "w", encoding="utf-8") as doc:
                 doc.write(
