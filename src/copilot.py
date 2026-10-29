@@ -27,7 +27,10 @@ def issue_comment(repo, number, body):
     gh("issue", "comment", str(number), "--repo", repo, "--body", body)
 
 
-def llm_extract(text, catalog):
+def llm_extract(text, catalog=None):
+    if catalog is None:
+        from module_catalog import discover_modules
+        catalog = discover_modules()
     if not API_KEY:
         raise RuntimeError("LLM_API_KEY secret is not configured.")
     catalog_data = [{"path": m["path"], "name": m["name"], "variables": m["variables"]} for m in catalog]
@@ -53,7 +56,10 @@ def llm_extract(text, catalog):
         payload = json.loads(response.read().decode())
     return json.loads(payload["choices"][0]["message"]["content"])
 
-def validate(data, catalog):
+def validate(data, catalog=None):
+    if catalog is None:
+        from module_catalog import discover_modules
+        catalog = discover_modules()
     errors = []
     repo_name = data.get("repository_name")
     if not isinstance(repo_name, str) or not re.fullmatch(r"infra-[a-z0-9]+(?:-[a-z0-9]+)*", repo_name):
