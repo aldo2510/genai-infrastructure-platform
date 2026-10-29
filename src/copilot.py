@@ -127,7 +127,32 @@ def create_repo_from_template(repo_name):
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")[:1200]
         if exc.code == 422 and "already exists" in detail.lower():
-            raise RuntimeError("Repository " + OWNER + "/" + repo_name + " already exists. Choose a different repo name or review it manually.") from exc
+            # Reuse only repositories that clearly contain our expected template.
+            check_url = "https://api.github.com/repos/" + OWNER + "/" + repo_name + "/contents/README.md"
+            check_req = urllib.request.Request(
+                check_url,
+                headers={
+                    "Authorization": "Bearer " + GH_PLATFORM_TOKEN,
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            try:
+                with urllib.request.urlopen(check_req, timeout=30) as check_response:
+                    readme_data = json.loads(check_response.read().decode())
+                readme = __import__("base64").b64decode(readme_data.get("content", "")).decode("utf-8", errors="replace")
+            except Exception as check_exc:
+                raise RuntimeError(
+                    "Repository " + OWNER + "/" + repo_name +
+                    " already exists, but I could not verify its template README. No files were changed."
+                ) from check_exc
+            if "Terraform Infrastructure Template" not in readme or "No incluye ni copia módulos Terraform compartidos" not in readme:
+                raise RuntimeError(
+                    "Repository " + OWNER + "/" + repo_name +
+                    " already exists and does not match the expected infrastructure template. No files were changed."
+                ) from exc
+            print("Verified existing template repository " + OWNER + "/" + repo_name + "; reusing it without overwriting existing files.")
+            return {"full_name": OWNER + "/" + repo_name, "reused_existing": True}
         raise RuntimeError("GitHub could not generate the repository from the template (HTTP " + str(exc.code) + "): " + detail) from exc
 
 
