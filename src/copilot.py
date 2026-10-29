@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import re
@@ -220,6 +221,17 @@ def main():
         target_repo = OWNER + "/" + repo_name
         create_repo_from_template(repo_name)
         cli_env = {"GH_TOKEN": GH_PLATFORM_TOKEN}
+        # gh authenticates its own commands, but raw git subprocesses do not inherit
+        # gh's credential helper. Supply the same token explicitly for fetch/ls-remote/push.
+        auth_value = base64.b64encode(("x-access-token:" + GH_PLATFORM_TOKEN).encode()).decode()
+        git_env = {
+            **os.environ,
+            **cli_env,
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
+            "GIT_CONFIG_VALUE_0": "AUTHORIZATION: basic " + auth_value,
+        }
         with tempfile.TemporaryDirectory(prefix="infra-copilot-") as temp_dir:
             checkout = os.path.join(temp_dir, repo_name)
             gh("repo", "clone", target_repo, checkout, env=cli_env)
@@ -239,7 +251,7 @@ def main():
                     exists = subprocess.run(
                         ["git", "ls-remote", "--exit-code", "--heads", "origin", candidate],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                        env={**os.environ, **cli_env}, cwd=checkout
+                        env=git_env, cwd=checkout
                     ).returncode == 0
                     if exists:
                         default_branch = candidate
@@ -367,9 +379,10 @@ def main():
                 subprocess.run(["git", "commit", "-m", "feat: propose infrastructure from issue #" + number], check=True, cwd=checkout)
             # Configure authenticated HTTPS for this subprocess only; never write the PAT into .git/config or logs.
             import base64
-            auth_value = base64.b64encode(("x-access-token:" + GH_PLATFORM_TOKEN).encode()).decode()
-            push_env = {**os.environ, **cli_env, "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader", "GIT_CONFIG_VALUE_0": "AUTHORIZATION: basic " + auth_value}
-            subprocess.run(["git", "push", "--force-with-lease", "--set-upstream", "origin", branch], check=True, env=push_env, cwd=checkout)
+            subprocess.run(
+                ["git", "push", "--force-with-lease", "--set-upstream", "origin", branch],
+                check=True, env=git_env, cwd=checkout
+            )
             pr_body = (
                 "## GenAI Infrastructure proposal\n\nGenerated from https://github.com/" + source_repo + "/issues/" + number + ".\n\n"
                 "- [ ] Review the remote module source and inputs\n"
