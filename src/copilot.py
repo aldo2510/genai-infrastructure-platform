@@ -262,7 +262,7 @@ def main():
                 exists = subprocess.run(
                     ["git", "ls-remote", "--exit-code", "--heads", "origin", "main"],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    env={**os.environ, **cli_env}, cwd=checkout
+                    env=git_env, cwd=checkout
                 ).returncode == 0
                 if exists:
                     default_branch = "main"
@@ -288,18 +288,18 @@ def main():
             # A branch created from an unrelated/orphan history cannot be used as a PR head.
             subprocess.run(
                 ["git", "fetch", "origin", default_branch],
-                check=True, env={**os.environ, **cli_env}, cwd=checkout
+                check=True, env=git_env, cwd=checkout
             )
             base_ref = "origin/" + default_branch
             remote_exists = subprocess.run(
                 ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                env={**os.environ, **cli_env}, cwd=checkout
+                env=git_env, cwd=checkout
             ).returncode == 0
             if remote_exists:
                 subprocess.run(
                     ["git", "fetch", "origin", branch],
-                    check=True, env={**os.environ, **cli_env}, cwd=checkout
+                    check=True, env=git_env, cwd=checkout
                 )
                 remote_commit = subprocess.run(
                     ["git", "rev-parse", "FETCH_HEAD"], check=True,
@@ -378,9 +378,16 @@ def main():
             if staged:
                 subprocess.run(["git", "commit", "-m", "feat: propose infrastructure from issue #" + number], check=True, cwd=checkout)
             # Configure authenticated HTTPS for this subprocess only; never write the PAT into .git/config or logs.
-            push_args = ["git", "push", "--set-upstream", "origin", branch]
             if remote_exists:
-                push_args.insert(2, "--force-with-lease")
+                # Only replace the remote branch if it still points at the commit we fetched.
+                # This is safer than an unqualified force push and avoids overwriting concurrent updates.
+                push_args = [
+                    "git", "push",
+                    "--force-with-lease=refs/heads/" + branch + ":" + remote_commit,
+                    "--set-upstream", "origin", branch
+                ]
+            else:
+                push_args = ["git", "push", "--set-upstream", "origin", branch]
             subprocess.run(push_args, check=True, env=git_env, cwd=checkout)
             pr_body = (
                 "## GenAI Infrastructure proposal\n\nGenerated from https://github.com/" + source_repo + "/issues/" + number + ".\n\n"
