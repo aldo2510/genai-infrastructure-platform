@@ -272,15 +272,52 @@ def main():
 
             subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True, cwd=checkout)
             subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True, cwd=checkout)
+            # Always base the proposal branch on the target repository's default branch.
+            # A branch created from an unrelated/orphan history cannot be used as a PR head.
+            subprocess.run(
+                ["git", "fetch", "origin", default_branch],
+                check=True, env={**os.environ, **cli_env}, cwd=checkout
+            )
+            base_ref = "origin/" + default_branch
             remote_exists = subprocess.run(
                 ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, **cli_env}, cwd=checkout
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                env={**os.environ, **cli_env}, cwd=checkout
             ).returncode == 0
             if remote_exists:
-                subprocess.run(["git", "fetch", "origin", branch], check=True, env={**os.environ, **cli_env}, cwd=checkout)
-                subprocess.run(["git", "checkout", "-B", branch, "FETCH_HEAD"], check=True, cwd=checkout)
+                subprocess.run(
+                    ["git", "fetch", "origin", branch],
+                    check=True, env={**os.environ, **cli_env}, cwd=checkout
+                )
+                remote_commit = subprocess.run(
+                    ["git", "rev-parse", "FETCH_HEAD"], check=True,
+                    capture_output=True, text=True, cwd=checkout
+                ).stdout.strip()
+                base_commit = subprocess.run(
+                    ["git", "rev-parse", base_ref], check=True,
+                    capture_output=True, text=True, cwd=checkout
+                ).stdout.strip()
+                common = subprocess.run(
+                    ["git", "merge-base", remote_commit, base_commit],
+                    check=False, capture_output=True, text=True, cwd=checkout
+                ).returncode == 0
+                if common:
+                    subprocess.run(
+                        ["git", "checkout", "-B", branch, remote_commit],
+                        check=True, cwd=checkout
+                    )
+                else:
+                    # No PR exists for this branch (checked above); repair the orphaned
+                    # branch by recreating it from the real base branch.
+                    subprocess.run(
+                        ["git", "checkout", "-B", branch, base_ref],
+                        check=True, cwd=checkout
+                    )
             else:
-                subprocess.run(["git", "checkout", "-b", branch], check=True, cwd=checkout)
+                subprocess.run(
+                    ["git", "checkout", "-B", branch, base_ref],
+                    check=True, cwd=checkout
+                )
 
             module = data["module"]
             params = data.get("parameters", {})
@@ -332,7 +369,7 @@ def main():
             import base64
             auth_value = base64.b64encode(("x-access-token:" + GH_PLATFORM_TOKEN).encode()).decode()
             push_env = {**os.environ, **cli_env, "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader", "GIT_CONFIG_VALUE_0": "AUTHORIZATION: basic " + auth_value}
-            subprocess.run(["git", "push", "--set-upstream", "origin", branch], check=True, env=push_env, cwd=checkout)
+            subprocess.run(["git", "push", "--force-with-lease", "--set-upstream", "origin", branch], check=True, env=push_env, cwd=checkout)
             pr_body = (
                 "## GenAI Infrastructure proposal\n\nGenerated from https://github.com/" + source_repo + "/issues/" + number + ".\n\n"
                 "- [ ] Review the remote module source and inputs\n"
